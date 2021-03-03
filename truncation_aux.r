@@ -16,10 +16,11 @@ compare_approximations <- function(compute_lterm, theta, exact, epsilon = 1E-10,
   ##
   out <- data.frame(
     Method = c("Naive", "Naive_threshold", "Doubling", "Adaptive"),
-    absolute_error_logspace = Sums-exact,
+    error_logspace = Sums-exact,
     relative_error_logspace = sapply(Sums, function(x) relative_difference(x, exact)),
     relative_error = sapply(exp(Sums), function(x) relative_difference(x, exp(exact))),
-    absolute_error = sapply(Sums, function(x) robust_difference(x, exact)),
+    log_error = sapply(Sums, function(x) robust_difference(x, exact, log = TRUE)),
+    error = sapply(Sums, function(x) robust_difference(x, exact)),
     n_evaluations = Niters,
     sum = Sums
   )
