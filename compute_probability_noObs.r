@@ -10,7 +10,7 @@ probability_noObs <- function(k, theta){
 
 Eta <- .08
 Theta <- Eta
-Eps <- 1E-14
+Eps <- 1E-16
 (TrueValue <- -log(Eta))
 
 result <- compare_approximations(probability_noObs, theta = Theta,
