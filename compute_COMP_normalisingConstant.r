@@ -12,7 +12,7 @@ COMP_lpdf <- function(k, theta){
 Lambda <- .5
 Nu <- .2
 Theta <- c(Lambda, Nu)
-Eps <- 1E-15
+Eps <- 1E-7
 M <- 2E5
 if(Nu == 1){
   TrueValue <- Lambda  

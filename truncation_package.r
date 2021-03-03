@@ -8,14 +8,18 @@ log_diff_exp <- function(x, y) {
   # if(x <= y) stop("computing the log of a negative number")
   if(y == -Inf){
     return (x)
-  }else{
-    return (x + log1p(-exp(y-x)))
+  }else{    
+    return(x + log (-expm1(y-x)))
   }
 }
 ##
-robust_difference <- function(x, y){
+robust_difference <- function(x, y, log = FALSE){
   sgn <- sign(x-y)
-  ans <- sgn * exp(log_diff_exp(max(x, y), min(x, y)))
+  if(log){
+    ans <- log_diff_exp(max(x, y), min(x, y))
+  }else{
+    ans <- sgn * exp(log_diff_exp(max(x, y), min(x, y)))
+  }
   return(ans)
 }
 ##
@@ -121,7 +125,7 @@ get_lratio <- function(la, lap1){
 approx_adaptive <- function(compute_lterm, theta, epsilon, n0 = 0, max_iter = 1E5, logL = -Inf){
   lterms.bulk <- rep(NA, max_iter + 1) ## avoid creating objects of variable size
   leps <- log(epsilon)
-  target.leps  <- leps
+  target.leps  <- leps + log(2)
   logR <- logL - log_diff_exp(0, logL)
   #######
   n <- n0
@@ -170,13 +174,14 @@ approx_adaptive <- function(compute_lterm, theta, epsilon, n0 = 0, max_iter = 1E
       lVn <- log_sum_exp(c(lz, old.lterm + logR))
       S.tail.hat <- log_sum_exp(c(S.tail, lVn-log(2)))   
       ans <-  log_sum_exp(c(S.bulk, S.tail.hat)) 
-      return(list(iter = n, sum = ans)) 
+      return(list(iter = n, sum = ans, ld = ldelta)) 
     }
   }
   S.tail <- log_sum_exp(na.omit(lterms.tail))
   lVn <- log_sum_exp(c(lz, old.lterm + logR))
   S.tail.hat <- log_sum_exp(c(S.tail, lVn-log(2)))
-  ans <- log_sum_exp(c(S.bulk, S.tail.hat))
+  # ans <- log_sum_exp(c(S.bulk, S.tail.hat))
+  ans <- log_sum_exp(c(na.omit(lterms.bulk), na.omit(lterms.tail), lz - log(2), old.lterm + logR - log(2)))
   return(list(mode = nmode, Sb = S.bulk, St = S.tail, St.est = S.tail.hat,
               lz = lz, lh = old.lterm + logR, ld = ldelta,
               iter = n-n0, sum = ans))
