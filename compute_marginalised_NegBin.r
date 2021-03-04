@@ -16,7 +16,7 @@ Phi <- .5
 Eta <- .08
 obsX <- 20
 Theta <- c(Mu, Phi, Eta, obsX)
-Eps <- 1E-10
+Eps <- 1E-20
 (TrueValue <- dnbinom(x = obsX, mu = Eta*Mu, size = Phi, log = TRUE) )
 
 result <- compare_approximations(negativeBinomial_marginalised, theta = Theta,
@@ -24,12 +24,6 @@ result <- compare_approximations(negativeBinomial_marginalised, theta = Theta,
 
 result
 
-bf <- log_sum_exp(negativeBinomial_marginalised(k = 0:857, theta = Theta))
-robust_difference(bf, TrueValue, log = TRUE)
-log(Eps)
-
-approx_adaptive(negativeBinomial_marginalised, theta = Theta,
-                n0 = obsX, epsilon = Eps, max_iter = 10000)
 
 library(microbenchmark)
 mit <- 1E5
