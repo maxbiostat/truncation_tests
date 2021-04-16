@@ -1,5 +1,3 @@
-
-
 log_sum_exp <- function(x){
   # log(sum(exp(x - max(x)))) + max(x) ## unstable
   ans <- matrixStats::logSumExp(lx = x)
