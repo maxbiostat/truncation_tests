@@ -1,4 +1,5 @@
-library(adaptiveSum)
+# remotes::install_github("GuidoAMoreira/sumR")
+library(sumR)
 source("compare_approximations.r")
 ######################################
 COMP_lpmf <- function(k, theta){
@@ -9,13 +10,14 @@ COMP_lpmf <- function(k, theta){
   )
 }
 
-Lambda <- 2
+Lambda <- 4
 Nu <- .5
 Theta <- c(Lambda, Nu)
 Eps <- 1E-16
 M <- 2E5
 x0 <- 0
-lgL <- log(0)
+lgL <- -Inf 
+Ns <- 10
 
 if(Nu == 1){
   TrueValue <- Lambda
@@ -29,28 +31,11 @@ if(Nu == 1){
 }
 
 TrueValue
-result <- compare_approximations(COMP_lpmf, theta = Theta,
+result <- compare_approximations(compute_lterm = COMP_lpmf,
+                                 theta = Theta,
                                  exact = TrueValue,
                                  n0 = x0, logL = lgL,
-                                 epsilon = Eps, max_iter = M/2)
-
+                                 Nstart = Ns,
+                                 eps = Eps,
+                                 max_iter = M/2)
 result
-
-adaptiveSum::naive_sum(lFun = COMP_lpmf,
-                       params = Theta,
-                       eps = Eps, maxIter = M/2,
-                       n0 = x0)
-
-timing <- bench::mark(
-  naive = adaptiveSum::naive_sum(lFun = COMP_lpmf,
-                                 params = Theta,
-                                 eps = Eps, maxIter = M/2,
-                                 n0 = x0),
-  adaptive = adaptiveSum::adapt_sum(lFun = COMP_lpmf,
-                                    params = Theta,
-                                    eps = Eps, maxIter = M/2,
-                                    n0 = x0, logL = lgL),
-  check = FALSE
-)
-
-timing

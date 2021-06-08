@@ -35,22 +35,44 @@ relative_difference <- function(x, y){
 }
 ##
 compare_approximations <- function(compute_lterm, theta, exact,
-                                   epsilon = 1E-10,
-                                   n0 = 0, max_iter = 1E5, logL = -Inf){
-  naive <- adaptiveSum::naive_sum(lFun = compute_lterm,
-                                  params = theta,
-                                  eps = epsilon, maxIter = max_iter,
-                                  n0 = n0) 
-  adaptive <- adaptiveSum::adapt_sum(lFun = compute_lterm,
-                                     params = theta,
-                                     eps = epsilon, maxIter = max_iter,
-                                     logL = logL, n0 = n0) 
+                                   eps = 1E-10,
+                                   n0 = 0, Nstart = 10,
+                                   max_iter = 1E5, logL = -Inf){
+  naive <- sumR::infiniteSum(
+    logFunction = compute_lterm,
+    parameters = theta,
+    epsilon = eps,
+    maxIter = max_iter,
+    n0 = n0,
+    forceAlgorithm = 1
+  )
+  
+  adaptive <- sumR::infiniteSum(
+    logFunction = compute_lterm,
+    parameters = theta,
+    epsilon = eps,
+    maxIter = max_iter,
+    logL = logL,
+    n0 = n0,
+    forceAlgorithm = 2
+  )
+  
+  doubling <- sumR::infiniteSum_cFolding_C(
+    logFunction = compute_lterm,
+    parameters = theta,
+    epsilon = eps,
+    N_start = Nstart,
+    c = 2,
+    maxIter = max_iter,
+    n0 = n0
+  )
+
   ##
-  Sums <- c(naive$sum, adaptive$sum)
-  Niters <- c(naive$n, adaptive$iter)
+  Sums <- c(naive$sum, doubling$sum, adaptive$sum)
+  Niters <- c(naive$n, doubling$n, adaptive$n)
   ##
   out <- data.frame(
-    Method = c("Naive", "Adaptive"),
+    Method = c("Naive", "C-folding", "Adaptive"),
     error_logspace = Sums-exact,
     # relative_error_logspace = sapply(Sums,
     #                                  function(x) relative_difference(x, exact)),
