@@ -10,14 +10,14 @@ COMP_lpmf <- function(k, theta){
   )
 }
 
-Lambda <- 4
-Nu <- .5
+Lambda <- 2
+Nu <- 1
 Theta <- c(Lambda, Nu)
 Eps <- 1E-16
 M <- 2E5
 x0 <- 0
 lgL <- -Inf 
-Ns <- 10
+Ns <- 6
 
 if(Nu == 1){
   TrueValue <- Lambda
@@ -34,7 +34,8 @@ TrueValue
 result <- compare_approximations(compute_lterm = COMP_lpmf,
                                  theta = Theta,
                                  exact = TrueValue,
-                                 n0 = x0, logL = lgL,
+                                 n0 = x0,
+                                 logL = lgL,
                                  Nstart = Ns,
                                  eps = Eps,
                                  max_iter = M/2)
