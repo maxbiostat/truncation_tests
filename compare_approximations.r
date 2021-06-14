@@ -57,7 +57,17 @@ compare_approximations <- function(compute_lterm, theta, exact,
     forceAlgorithm = 2
   )
   
-  doubling <- sumR::infiniteSum_cFolding_C(
+  doubling <- sumR::infiniteSum_cFolding(
+    logFunction = compute_lterm,
+    parameters = theta,
+    epsilon = eps,
+    N_start = Nstart,
+    c = 2,
+    maxIter = max_iter,
+    n0 = n0
+  )
+  
+  doubling_C <- sumR::infiniteSum_cFolding_C(
     logFunction = compute_lterm,
     parameters = theta,
     epsilon = eps,
@@ -68,11 +78,11 @@ compare_approximations <- function(compute_lterm, theta, exact,
   )
 
   ##
-  Sums <- c(naive$sum, doubling$sum, adaptive$sum)
-  Niters <- c(naive$n, doubling$n, adaptive$n)
+  Sums <- c(naive$sum, doubling$sum, doubling_C$sum, adaptive$sum)
+  Niters <- c(naive$n, doubling$n, doubling_C$n, adaptive$n)
   ##
   out <- data.frame(
-    Method = c("Naive", "C-folding", "Adaptive"),
+    Method = c("Naive", "C-folding", "C-folding_C", "Adaptive"),
     error_logspace = Sums-exact,
     # relative_error_logspace = sapply(Sums,
     #                                  function(x) relative_difference(x, exact)),
