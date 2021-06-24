@@ -36,7 +36,7 @@ relative_difference <- function(x, y){
 ##
 compare_approximations <- function(compute_lterm, theta, exact,
                                    eps = 1E-10,
-                                   n0 = 0, Nstart = 10,
+                                   n0 = 0, Nstart = 10, Nfix = 1000,
                                    max_iter = 1E5, logL = -Inf){
   naive <- sumR::infiniteSum(
     logFunction = compute_lterm,
@@ -76,13 +76,21 @@ compare_approximations <- function(compute_lterm, theta, exact,
     maxIter = max_iter,
     n0 = n0
   )
+  
+  fixed <- sumR::finiteSum(
+    logFunction = compute_lterm,
+    parameters = theta,
+    n0 = n0,
+    n = Nfix
+  )
 
   ##
-  Sums <- c(naive$sum, doubling$sum, doubling_C$sum, adaptive$sum)
-  Niters <- c(naive$n, doubling$n, doubling_C$n, adaptive$n)
+  Sums <- c(naive$sum, doubling$sum, doubling_C$sum, adaptive$sum, fixed)
+  Niters <- c(naive$n, doubling$n, doubling_C$n, adaptive$n, Nfix)
   ##
   out <- data.frame(
-    Method = c("Naive", "C-folding", "C-folding_C", "Adaptive"),
+    Method = c("Naive", "C-folding", "C-folding_C", "Adaptive",
+               paste0("Fixed_", Nfix)),
     error_logspace = Sums-exact,
     # relative_error_logspace = sapply(Sums,
     #                                  function(x) relative_difference(x, exact)),
