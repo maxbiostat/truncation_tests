@@ -15,6 +15,7 @@ a1 <- 2
 lps.1 <- sapply(0:(2*M),
                 function(j) compute_lterm(n = j, p = a1))
 TV.1 <- matrixStats::logSumExp(sort(lps.1))
+TTV.1 <- log(1/12 * (pi^2 - 6*log(2)^2))
 
 naive.1 <- sumR::infiniteSum(
   logFunction = compute_lterm,
@@ -62,8 +63,15 @@ adaptive.2 <- sumR::infiniteSum(
 
 source("aux.r")
 
+
+robust_difference(x = TV.1, y = TTV.1)
+
 robust_difference(x = TV.1, y = naive.1$sum)
 robust_difference(x = TV.1, y = adaptive.1$sum)
+
+robust_difference(x = TTV.1, y = naive.1$sum)
+robust_difference(x = TTV.1, y = adaptive.1$sum)
+
 robust_difference(x = TV.2, y = naive.2$sum)
 robust_difference(x = TV.2, y = adaptive.2$sum)
 
