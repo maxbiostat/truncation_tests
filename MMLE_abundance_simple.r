@@ -2,9 +2,9 @@ library(gamlss.dist)
 library(rstan)
 source("double_poisson_binomial_aux.r")
 
-Mu <- 4
-Phi <- .5
-PP <- .22
+Mu <- 40
+Phi <- 1
+PP <- .5
 J <- 1000
 simu <- simulate_obsdata(n = J, mu = Mu, phi = Phi, p = PP)
 data <- compress_counts(simu$obs_x)
