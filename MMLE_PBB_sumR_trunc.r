@@ -1,7 +1,7 @@
 library(sumR)
 library(extraDistr)
 library(stats4)
-source("poisson_Betabinomial_truc_aux.r")
+source("poisson_Betabinomial_trunc_aux.r")
 ####################
 Mu <- 400
 A <- 10
