@@ -100,5 +100,3 @@ tab$x <- NULL
 tab$algorithm <- NULL
 
 print(xtable::xtable(tab), include.rownames = FALSE)
-
-
