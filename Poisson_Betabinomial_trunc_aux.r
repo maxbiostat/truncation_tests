@@ -73,3 +73,50 @@ marginal_loglikelihood <- function(data, pars,
   )
   return(sum(logliks))
 }
+
+### Guido's smart boi implementation in C
+Rcpp::sourceCpp(code = '
+#include <Rcpp.h>
+
+// [[Rcpp::depends(sumR)]]
+
+#include <sumRAPI.h>
+
+long double with_obs_error_lpmf(long k, double *p) {
+  if (p[3] > k) return -INFINITY;
+  return R::dpois(k, p[0], true) +
+    R::lchoose(k, p[3]) + R::lbeta(p[3] + p[1], k - p[3] + p[2]) -
+    R::lbeta(p[1], p[2]);
+}
+
+// [[Rcpp::export]]
+double marginal_loglikelihood_C(Rcpp::List data, SEXP pars, double eps,
+                              bool verbose = false)
+{
+  long double r = 0., first;
+  long n, i, items; // Number of iterations. Does not require initialization.
+  items = INTEGER(data["K"])[0];
+
+  double params[4];
+  for (i = 0; i < 3; i++) params[i] = REAL(pars)[i];
+
+  // Getting first
+  params[3] = 0;
+  first = log1pl(-expl(infiniteSumToThreshold(with_obs_error_lpmf, params, 0, eps, 100000, 0, &n)));
+  if (verbose)
+    Rcpp::Rcout << "Summation of element " << 0 <<  " took " << n << " iterations to converge.\\n";
+
+  for (i = 0; i < items; i++) {
+    params[3] = REAL(data["count"])[i];
+
+    r += REAL(data["freq"])[i] *
+      infiniteSumToThreshold(with_obs_error_lpmf, params, 0, eps, 100000, 0, &n) -
+      first;
+
+    if (verbose)
+      Rcpp::Rcout << "Summation of element " << i + 1 <<  " took " << n << " iterations to converge.\\n";
+  }
+
+  return (double)r;
+}
+')
