@@ -42,7 +42,7 @@ compare_approximations <- function(compute_lterm, theta, exact,
     n0 = n0,
     forceAlgorithm = 1
   )
-  
+
   adaptive <- sumR::infiniteSum(
     logFunction = compute_lterm,
     parameters = theta,
@@ -52,7 +52,7 @@ compare_approximations <- function(compute_lterm, theta, exact,
     n0 = n0,
     forceAlgorithm = 2
   )
-  
+
   doubling <- sumR::infiniteSum_cFolding(
     logFunction = compute_lterm,
     parameters = theta,
@@ -62,7 +62,7 @@ compare_approximations <- function(compute_lterm, theta, exact,
     maxIter = max_iter,
     n0 = n0
   )
-  
+
   doubling_C <- sumR::infiniteSum_cFolding_C(
     logFunction = compute_lterm,
     parameters = theta,
@@ -72,21 +72,21 @@ compare_approximations <- function(compute_lterm, theta, exact,
     maxIter = max_iter,
     n0 = n0
   )
-  
+
   fixed <- sumR::finiteSum(
     logFunction = compute_lterm,
     parameters = theta,
     n0 = n0,
     n = Nfix
   )
-  
+
   fixedMax <- sumR::finiteSum(
     logFunction = compute_lterm,
     parameters = theta,
     n0 = n0,
     n = max_iter
   )
-  
+
   ##
   Sums <- c(naive$sum, doubling$sum, doubling_C$sum,
             adaptive$sum, fixed, fixedMax)
