@@ -23,11 +23,11 @@ Rcpp::cppFunction(code='
   }')
 
 #######
-Mu <- 12 ## try 11.8 and 11.9 and be amazed
+Mu <- 11.8 ## try 11.8 and 11.9 and 12.8 and be amazed
 R <- 2
 Theta <- c(Mu, R)
 TrueValue <- R*log(Mu)
-Eps <- .Machine$double.eps
+Eps <- .Machine$double.eps*1E4
 lgL <- log(0)
 #######
 
@@ -42,5 +42,15 @@ result.C <- compare_approximations(compute_lterm = poisson_lfactmom_C,
                                    exact = TrueValue,
                                    eps = Eps,
                                    logL = lgL)
+
+
+result.preComp <- compare_approximations(
+                       compute_lterm = "poisson_fact_moment",
+                       theta = Theta,
+                       exact = TrueValue,
+                       eps = Eps)
+
 result.R
 result.C
+result.preComp
+
