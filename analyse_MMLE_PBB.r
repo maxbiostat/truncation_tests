@@ -8,7 +8,8 @@ results
 true.theta <- results$true[1:4] 
 
 ggplot() + 
-  geom_pointrange(data = subset(results, parameter != "n_iter"),
+  geom_pointrange(data = subset(results,
+                                parameter != "n_iter" & fail == FALSE),
                   mapping = aes(x = replicate, y = point,
                                 ymin = lwr, ymax = upr)) +
   # geom_hline(yintercept = I.quad$value,
@@ -18,8 +19,8 @@ ggplot() +
   facet_grid(parameter~method, labeller = label_parsed, scales = "free_y") +
   theme_bw(base_size = 20)
 
-results
 
+results
 aggregate((point-true)/true~method+parameter, mean, data = results)
 aggregate(point~method+parameter, var, data = results)
 aggregate(covers~method+parameter, mean, data = results)

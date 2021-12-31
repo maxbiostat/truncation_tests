@@ -72,12 +72,14 @@ obtain_fit <- function(data,
   iters <- Opt.MLE$par[grep("niter", names(Opt.MLE$par))]
   
   MLE.ests <- tibble::tibble(
-    parameter = c("mu", "alpha", "beta", "p_hat", "n_iter"),
+    parameter = c("mu", "alpha", "beta", "p_hat",
+                  "log_lik", "n_iter"),
     true = c(theta[1], theta[2],
-             theta[3], theta[2]/(theta[2]+theta[3]), NA),
-    point =  c(point.ests, get_p(point.ests), median(iters)),
-    lwr = c(draws.lwr, pl, min(iters)),
-    upr = c(draws.upr, pu, max(iters)),
+             theta[3], theta[2]/(theta[2]+theta[3]), NA,  NA),
+    point =  c(point.ests, get_p(point.ests),
+               Opt.MLE$value, median(iters)),
+    lwr = c(draws.lwr, pl, NA, min(iters)),
+    upr = c(draws.upr, pu, NA, max(iters)),
   )
   MLE.ests$covers <- is_in(x = MLE.ests$true, 
                            l = MLE.ests$lwr,

@@ -3,9 +3,9 @@ library(extraDistr)
 library(bbmle)
 source("Poisson_Betabinomial_trunc_aux.r")
 ####################
-Mu <- 20
-A <- 2
-B <- 8
+Mu <- 100
+A <- 1
+B <- 9
 J <- 1000
 simu <- simulate_obsdata(n = J, mu = Mu, a = A, b = B,
                          seed = 1362956)
