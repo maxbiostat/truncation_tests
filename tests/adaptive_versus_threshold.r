@@ -36,6 +36,17 @@ adaptive.1 <- sumR::infiniteSum(
   forceAlgorithm = 2
 )
 
+doubling.1 <- sumR::infiniteSum_cFolding_C(
+  logFunction = compute_lterm,
+  parameters = a1,
+  epsilon = Eps,
+  maxIter = M,
+  n0 = 0,
+  c = 2,
+  N_start = 10
+)
+
+####################
 a2 <- 1.1
 
 lps.2 <- sapply(0:(2*M),
@@ -61,21 +72,36 @@ adaptive.2 <- sumR::infiniteSum(
   forceAlgorithm = 2
 )
 
-source("aux.r")
+doubling.2 <- sumR::infiniteSum_cFolding_C(
+  logFunction = compute_lterm,
+  parameters = a2,
+  epsilon = Eps,
+  maxIter = M,
+  n0 = 0,
+  c = 2,
+  N_start = 10
+)
 
+source("../aux/aux.r")
 
 robust_difference(x = TV.1, y = TTV.1)
 
 robust_difference(x = TV.1, y = naive.1$sum)
 robust_difference(x = TV.1, y = adaptive.1$sum)
+robust_difference(x = TV.1, y = doubling.1$sum)
 
 robust_difference(x = TTV.1, y = naive.1$sum)
 robust_difference(x = TTV.1, y = adaptive.1$sum)
+robust_difference(x = TTV.1, y = doubling.1$sum)
 
 robust_difference(x = TV.2, y = naive.2$sum)
 robust_difference(x = TV.2, y = adaptive.2$sum)
+robust_difference(x = TV.2, y = doubling.2$sum)
 
 naive.1$n
 adaptive.1$n
+doubling.1$n
+
 naive.2$n
 adaptive.2$n
+doubling.2$n
