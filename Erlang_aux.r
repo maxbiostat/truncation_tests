@@ -59,3 +59,51 @@ marginal_loglikelihood <- function(data, pars,
   
   return(sum(logliks))
 }
+
+
+Rcpp::cppFunction(code='
+  NumericVector marginal_Erlang_lpdf_C(IntegerVector n, NumericVector p)
+  {
+  NumericVector output(n.size());
+  for (int i = 0; i < n.size(); i++) {
+    if (n[i] < 1) output[i] = -INFINITY;
+    else
+      output[i] = R::dpois(n[i], p[0], true) + R::dgamma(p[2], n[i], 1/p[1], true);
+  }
+  return output;
+  }')
+
+marg_lik_full <- function(x, pars, eps = .Machine$double.eps,
+                     adaptive = TRUE, N_fix = NULL, verbose = FALSE){
+  if(adaptive){
+    logProb <- sumR::infiniteSum(logFunction = marginal_Erlang_lpdf_C,
+                                     parameters = c(pars, x),
+                                     logL = log(0),
+                                     epsilon = eps)
+    if(verbose) cat("Marginalised probability took", logProb$n,
+                    "iterations \n")
+    ans <- logProb$sum
+  }else{
+    logProb <- sumR::finiteSum(logFunction = marginal_Erlang_lpdf_C,
+                                   parameters = c(pars, x),
+                                   n = N_fix)
+    ans <- logProb 
+  }
+  return(ans - log1p(-exp(-pars[1])))
+}
+
+marginal_loglikelihood_full <- function(data, pars, 
+                                   eps = .Machine$double.eps,
+                                   adaptive = TRUE,
+                                   N_fix = NULL,
+                                   verbose = FALSE){
+  logliks <- unlist(
+    lapply(1:data$K, function(i){
+      marg_lik_full(x = data$obs_x[i], pars = pars,
+               eps = eps, adaptive = adaptive,
+               N_fix = N_fix, verbose = verbose) 
+    })
+  )
+  
+  return(sum(logliks))
+}
