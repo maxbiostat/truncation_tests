@@ -28,20 +28,18 @@ marg_lik <- function(x, pars, eps = .Machine$double.eps,
   b <- pars[2]
   z <- mu*b*x
 
-  
   if(adaptive){
     bessel.sumR <- sumR::infiniteSum(logFunction = "bessel_I",
                                            parameters = c(2*sqrt(z), 1),
                                            epsilon = eps)
     if(verbose) cat("Marginalised probability took", bessel.sumR$n,
                     "iterations \n")
-    ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.sumR$sum  
   }else{
     bessel.sumR <- sumR::finiteSum(logFunction = "bessel_I",
                                          parameters = c(2*sqrt(z), 1),
                                          n = N_fix)
-    ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.sumR
   }
+  ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.sumR$sum
   return(ans-log1p(-exp(-mu)))
 }
 
@@ -132,11 +130,10 @@ marg_lik_fast <- function(x, pars, eps = .Machine$double.eps,
   
   if(adaptive){
     bessel.nocheck <- bessel_I_fast(parameters = c(2*sqrt(z), 1), epsilon = eps)
-    ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.nocheck
   }else{
     bessel.nocheck <- bessel_I_fast_fixed(parameters = c(2*sqrt(z), 1), 1000)
-    ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.nocheck
   }
+  ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.nocheck
   return(ans-log1p(-exp(-mu)))
 }
 

@@ -107,7 +107,6 @@ marginal_loglikelihood_full_fast(data = data, pars = c(Mu, B),
                               eps = .Machine$double.eps,
                               verbose = TRUE)
 
-
 bench::mark(
   bessel_only = marginal_loglikelihood(data = data, pars = c(Mu, B),
                                        eps = .Machine$double.eps,
