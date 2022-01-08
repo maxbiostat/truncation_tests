@@ -60,7 +60,100 @@ marginal_loglikelihood <- function(data, pars,
   return(sum(logliks))
 }
 
+### Bessel-only likelihood with nae checks
+Rcpp::sourceCpp(code='
+#include <Rcpp.h>
 
+// [[Rcpp::depends(sumR)]]
+
+#include <sumRAPI.h>
+
+long double bessel_lterm(long k, double *Theta)
+{
+  return (2 * k + Theta[1]) * (logl(Theta[0]) - log(2)) -
+    lgammal(k + 1) - lgammal(Theta[1] + k + 1);
+}
+
+// [[Rcpp::export]]
+double bessel_I_fast(Rcpp::NumericVector parameters, double epsilon = 1E-16,
+  long maxIter = 100000)
+{
+  double parameter[2];
+  long double r;
+  long n; // Number of iterations. Does not require initialization.
+
+  parameter[0] = parameters[0];
+  parameter[1] = parameters[1];
+
+  r = infiniteSum(bessel_lterm, parameter, 0, epsilon, maxIter, -INFINITY, 0, &n);
+  
+  // Rcpp::Rcout << "Summation took " << n << " iterations to converge.\\n";
+
+  return (double)r;
+}
+')
+
+Rcpp::sourceCpp(code='
+#include <Rcpp.h>
+
+// [[Rcpp::depends(sumR)]]
+
+#include <sumRAPI.h>
+
+long double bessel_lterm(long k, double *Theta)
+{
+  return (2 * k + Theta[1]) * (logl(Theta[0]) - log(2)) -
+    lgammal(k + 1) - lgammal(Theta[1] + k + 1);
+}
+
+// [[Rcpp::export]]
+double bessel_I_fast_fixed(Rcpp::NumericVector parameters, long iterations)
+{
+  double parameter[2];
+  long double r;
+  long n; // Number of iterations. Does not require initialization.
+
+  parameter[0] = parameters[0];
+  parameter[1] = parameters[1];
+
+  r = sumNTimes(bessel_lterm, parameter, iterations, 0);
+  
+  return (double)r;
+}
+')
+
+marg_lik_fast <- function(x, pars, eps = .Machine$double.eps,
+                     adaptive = TRUE, N_fix = NULL, verbose = FALSE){
+  
+  mu <- pars[1]
+  b <- pars[2]
+  z <- mu*b*x
+  
+  
+  if(adaptive){
+    bessel.nocheck <- bessel_I_fast(parameters = c(2*sqrt(z), 1), epsilon = eps)
+    ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.nocheck
+  }else{
+    bessel.nocheck <- bessel_I_fast_fixed(parameters = c(2*sqrt(z), 1), 1000)
+    ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.nocheck
+  }
+  return(ans-log1p(-exp(-mu)))
+}
+
+marginal_loglikelihood_fast <- function(data, pars, 
+                                   eps = .Machine$double.eps,
+                                   adaptive = TRUE, N_fix = NULL,
+                                   verbose = FALSE){
+  logliks <- unlist(
+    lapply(1:data$K, function(i){
+      marg_lik_fast(x = data$obs_x[i], pars = pars,
+               eps = eps, adaptive = adaptive,
+               N_fix = N_fix, verbose = verbose) 
+    })
+  )
+  
+  return(sum(logliks))
+}
 
 Rcpp::cppFunction(code='
   NumericVector marginal_Erlang_lpdf_C(IntegerVector n, NumericVector p)
@@ -142,18 +235,44 @@ double sum_erlang(Rcpp::NumericVector parameters, double epsilon = 1E-16,
 }
 ')
 
+Rcpp::sourceCpp(code='
+#include <Rcpp.h>
+
+// [[Rcpp::depends(sumR)]]
+
+#include <sumRAPI.h>
+
+long double erlang(long n, double *p)
+{
+  return n < 1 ? -INFINITY :
+    R::dpois(n, p[0], 1) + R::dgamma(p[2], n, 1 / p[1], 1);
+}
+
+// [[Rcpp::export]]
+double sum_erlang_fixed(Rcpp::NumericVector parameters, long iterations)
+{
+  double parameter[3];
+  long double r;
+  long n; // Number of iterations. Does not require initialization.
+
+  parameter[0] = parameters[0];
+  parameter[1] = parameters[1];
+  parameter[2] = parameters[2];
+
+  r = sumNTimes(erlang, parameter, iterations, 0);
+  
+  return (double)r;
+}
+')
+
 marg_lik_full_fast <- function(x, pars, eps = .Machine$double.eps,
                           adaptive = TRUE, N_fix = NULL, verbose = FALSE){
   if(adaptive){
     logProb <- sum_erlang(parameters = c(pars, x), epsilon = eps)
-    ans <- logProb
   }else{
-    logProb <- sumR::finiteSum(logFunction = marginal_Erlang_lpdf_C,
-                               parameters = c(pars, x),
-                               n = N_fix)
-    ans <- logProb 
+    logProb <- sum_erlang_fixed(parameters = c(pars, x), 1000)
   }
-  return(ans - log1p(-exp(-pars[1])))
+  return(logProb - log1p(-exp(-pars[1])))
 }
 
 marginal_loglikelihood_full_fast <- function(data, pars, 
