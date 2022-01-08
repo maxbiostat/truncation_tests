@@ -61,6 +61,7 @@ marginal_loglikelihood <- function(data, pars,
 }
 
 
+
 Rcpp::cppFunction(code='
   NumericVector marginal_Erlang_lpdf_C(IntegerVector n, NumericVector p)
   {
@@ -102,6 +103,69 @@ marginal_loglikelihood_full <- function(data, pars,
       marg_lik_full(x = data$obs_x[i], pars = pars,
                eps = eps, adaptive = adaptive,
                N_fix = N_fix, verbose = verbose) 
+    })
+  )
+  
+  return(sum(logliks))
+}
+
+Rcpp::sourceCpp(code='
+#include <Rcpp.h>
+
+// [[Rcpp::depends(sumR)]]
+
+#include <sumRAPI.h>
+
+long double erlang(long n, double *p)
+{
+  return n < 1 ? -INFINITY :
+    R::dpois(n, p[0], 1) + R::dgamma(p[2], n, 1 / p[1], 1);
+}
+
+// [[Rcpp::export]]
+double sum_erlang(Rcpp::NumericVector parameters, double epsilon = 1E-16,
+  long maxIter = 100000)
+{
+  double parameter[3];
+  long double r;
+  long n; // Number of iterations. Does not require initialization.
+
+  parameter[0] = parameters[0];
+  parameter[1] = parameters[1];
+  parameter[2] = parameters[2];
+
+  r = infiniteSum(erlang, parameter, 0, epsilon, maxIter, -INFINITY, 0, &n);
+  
+  // Rcpp::Rcout << "Summation took " << n << " iterations to converge.\\n";
+
+  return (double)r;
+}
+')
+
+marg_lik_full_fast <- function(x, pars, eps = .Machine$double.eps,
+                          adaptive = TRUE, N_fix = NULL, verbose = FALSE){
+  if(adaptive){
+    logProb <- sum_erlang(parameters = c(pars, x), epsilon = eps)
+    ans <- logProb
+  }else{
+    logProb <- sumR::finiteSum(logFunction = marginal_Erlang_lpdf_C,
+                               parameters = c(pars, x),
+                               n = N_fix)
+    ans <- logProb 
+  }
+  return(ans - log1p(-exp(-pars[1])))
+}
+
+marginal_loglikelihood_full_fast <- function(data, pars, 
+                                        eps = .Machine$double.eps,
+                                        adaptive = TRUE,
+                                        N_fix = NULL,
+                                        verbose = FALSE){
+  logliks <- unlist(
+    lapply(1:data$K, function(i){
+      marg_lik_full_fast(x = data$obs_x[i], pars = pars,
+                    eps = eps, adaptive = adaptive,
+                    N_fix = N_fix, verbose = verbose) 
     })
   )
   
