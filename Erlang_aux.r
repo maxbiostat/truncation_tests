@@ -22,7 +22,7 @@ simulate_obsdata <- function(n, mu, b, seed = NULL){
 ## Pr(X = x | mu, b, x)
 ### pars = c(mu, b, x)
 marg_lik <- function(x, pars, eps = .Machine$double.eps,
-                     adaptive = TRUE, N_fix = NULL, verbose = FALSE){
+                     adaptive = TRUE, N_fix = 1000, verbose = FALSE){
   
   mu <- pars[1]
   b <- pars[2]
@@ -83,8 +83,8 @@ double bessel_I_fast(Rcpp::NumericVector parameters, double epsilon = 1E-16,
   parameter[0] = parameters[0];
   parameter[1] = parameters[1];
 
-  r = infiniteSum(bessel_lterm, parameter, 0, epsilon, maxIter, -INFINITY, 0, &n);
-  
+  r = infiniteSum(bessel_lterm, parameter, -INFINITY, 0,
+                  epsilon, maxIter, 0, &n);
   // Rcpp::Rcout << "Summation took " << n << " iterations to converge.\\n";
 
   return (double)r;
@@ -121,7 +121,7 @@ double bessel_I_fast_fixed(Rcpp::NumericVector parameters, long iterations)
 ')
 
 marg_lik_fast <- function(x, pars, eps = .Machine$double.eps,
-                     adaptive = TRUE, N_fix = NULL, verbose = FALSE){
+                     adaptive = TRUE, N_fix = 1000, verbose = FALSE){
   
   mu <- pars[1]
   b <- pars[2]
@@ -129,9 +129,11 @@ marg_lik_fast <- function(x, pars, eps = .Machine$double.eps,
   
   
   if(adaptive){
-    bessel.nocheck <- bessel_I_fast(parameters = c(2*sqrt(z), 1), epsilon = eps)
+    bessel.nocheck <- bessel_I_fast(parameters = c(2*sqrt(z), 1),
+                                    epsilon = eps)
   }else{
-    bessel.nocheck <- bessel_I_fast_fixed(parameters = c(2*sqrt(z), 1), 1000)
+    bessel.nocheck <- bessel_I_fast_fixed(parameters = c(2*sqrt(z), 1),
+                                          N_fix)
   }
   ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.nocheck
   return(ans-log1p(-exp(-mu)))
@@ -165,7 +167,7 @@ Rcpp::cppFunction(code='
   }')
 
 marg_lik_full <- function(x, pars, eps = .Machine$double.eps,
-                     adaptive = TRUE, N_fix = NULL, verbose = FALSE){
+                     adaptive = TRUE, N_fix = 100, verbose = FALSE){
   if(adaptive){
     logProb <- sumR::infiniteSum(logFunction = marginal_Erlang_lpdf_C,
                                      parameters = c(pars, x),
@@ -178,7 +180,7 @@ marg_lik_full <- function(x, pars, eps = .Machine$double.eps,
     logProb <- sumR::finiteSum(logFunction = marginal_Erlang_lpdf_C,
                                    parameters = c(pars, x),
                                    n = N_fix)
-    ans <- logProb 
+    ans <- logProb$sum
   }
   return(ans - log1p(-exp(-pars[1])))
 }
@@ -186,7 +188,7 @@ marg_lik_full <- function(x, pars, eps = .Machine$double.eps,
 marginal_loglikelihood_full <- function(data, pars, 
                                    eps = .Machine$double.eps,
                                    adaptive = TRUE,
-                                   N_fix = NULL,
+                                   N_fix = 1000,
                                    verbose = FALSE){
   logliks <- unlist(
     lapply(1:data$K, function(i){
@@ -224,8 +226,8 @@ double sum_erlang(Rcpp::NumericVector parameters, double epsilon = 1E-16,
   parameter[1] = parameters[1];
   parameter[2] = parameters[2];
 
-  r = infiniteSum(erlang, parameter, 0, epsilon, maxIter, -INFINITY, 0, &n);
-  
+  r = infiniteSum(erlang, parameter, -INFINITY, 0,
+                  epsilon, maxIter, 0, &n);
   // Rcpp::Rcout << "Summation took " << n << " iterations to converge.\\n";
 
   return (double)r;
@@ -263,11 +265,12 @@ double sum_erlang_fixed(Rcpp::NumericVector parameters, long iterations)
 ')
 
 marg_lik_full_fast <- function(x, pars, eps = .Machine$double.eps,
-                          adaptive = TRUE, N_fix = NULL, verbose = FALSE){
+                          adaptive = TRUE, N_fix = 1000,
+                          verbose = FALSE){
   if(adaptive){
     logProb <- sum_erlang(parameters = c(pars, x), epsilon = eps)
   }else{
-    logProb <- sum_erlang_fixed(parameters = c(pars, x), 1000)
+    logProb <- sum_erlang_fixed(parameters = c(pars, x), N_fix)
   }
   return(logProb - log1p(-exp(-pars[1])))
 }
@@ -275,7 +278,7 @@ marg_lik_full_fast <- function(x, pars, eps = .Machine$double.eps,
 marginal_loglikelihood_full_fast <- function(data, pars, 
                                         eps = .Machine$double.eps,
                                         adaptive = TRUE,
-                                        N_fix = NULL,
+                                        N_fix = 1000,
                                         verbose = FALSE){
   logliks <- unlist(
     lapply(1:data$K, function(i){
