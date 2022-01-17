@@ -32,8 +32,11 @@ relative_difference <- function(x, y){
 
 compare_approximations <- function(compute_lterm, theta, exact,
                                    eps = 1E-10,
-                                   n0 = 0, Nstart = 10, Nfix = 1000,
-                                   max_iter = 3E5, logL = -Inf){
+                                   n0 = 0,
+                                   batch_size = 20,
+                                   Nfix = 1000,
+                                   max_iter = 3E5,
+                                   logL = -Inf){
   naive <- sumR::infiniteSum(
     logFunction = compute_lterm,
     parameters = theta,
@@ -53,22 +56,20 @@ compare_approximations <- function(compute_lterm, theta, exact,
     forceAlgorithm = 2
   )
 
-  # doubling <- sumR::infiniteSum_cFolding(
+  # batches <- sumR::infiniteSum_batches(
   #   logFunction = compute_lterm,
   #   parameters = theta,
   #   epsilon = eps,
-  #   N_start = Nstart,
-  #   c = 2,
+  #   batch_size = batch_size,
   #   maxIter = max_iter,
   #   n0 = n0
   # )
 
-  doubling_C <- sumR::infiniteSum_cFolding_C(
+  batches_C <- sumR::infiniteSum_batches_C(
     logFunction = compute_lterm,
     parameters = theta,
     epsilon = eps,
-    N_start = Nstart,
-    c = 2,
+    batch_size = batch_size,
     maxIter = max_iter,
     n0 = n0
   )
@@ -89,19 +90,26 @@ compare_approximations <- function(compute_lterm, theta, exact,
 
   ##
   Sums <- c(naive$sum,
-            # doubling$sum,
-            doubling_C$sum,
-            adaptive$sum, fixed, fixedMax)
+            # batches$sum,
+            batches_C$sum,
+            adaptive$sum,
+            fixed$sum,
+            fixedMax$sum)
   Niters <- c(naive$n,
-              # doubling$n,
-              doubling_C$n, adaptive$n, Nfix, max_iter)
+              # batches$n,
+              batches_C$n,
+              adaptive$n,
+              Nfix,
+              max_iter)
   K <- length(Sums)
   ##
   out <- data.frame(
-    Method = c("Naive",
-               # "C-folding",
-               "C-folding_C", "Adaptive",
-               paste0("Fixed_", Nfix), paste0("Fixed_", max_iter)),
+    Method = c("Threshold",
+               # "Batches",
+               "Batches_C",
+               "BoundingPair",
+               paste0("Fixed_", Nfix),
+               paste0("Fixed_", max_iter)),
     error_logspace = Sums-exact,
     # relative_error_logspace = sapply(Sums,
     #                                  function(x) relative_difference(x, exact)),
