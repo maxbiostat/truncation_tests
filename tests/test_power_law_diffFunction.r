@@ -92,10 +92,14 @@ approximation.dt$row_id <- paste(approximation.dt$phi_0,
 
 approximation.dt <- approximation.dt %>%
   group_by(row_id) %>%
-  mutate(comparative_error = abs(error)/abs(error[method == 'Fixed_3e+05']))
+  mutate(comparative_error = abs(error)/
+           max(abs(error[method == 'Fixed_3e+05']), target_error))
 
 approximation.dt <- approximation.dt %>%
   mutate(comparative_success = comparative_error <= 1)
+
+approximation.dt <- approximation.dt %>%
+  mutate(actual_success = as.logical(success + comparative_success))
 
 aggregate(success~method, approximation.dt, mean)
 aggregate(comparative_success~method, approximation.dt, mean)
@@ -103,10 +107,14 @@ aggregate(comparative_success~method, approximation.dt, mean)
 aggregate(success~method+target_error, approximation.dt, mean)
 aggregate(comparative_success~method+target_error, approximation.dt, mean)
 
-aggregate(comparative_success~method+L, approximation.dt, mean)
+aggregate(comparative_success~method+L,
+          approximation.dt,
+          mean)
 
 subset(approximation.dt,
-       !comparative_success & method == "Threshold")%>% print(n = 45)
+       !actual_success 
+       & method == "Threshold") %>% print(n = 45)
 
 subset(approximation.dt,
-       !comparative_success & method == "BoundingPair") %>% print(n = 28)
+       !actual_success
+       & method == "BoundingPair") %>% print(n = 28)
