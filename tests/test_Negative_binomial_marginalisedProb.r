@@ -1,4 +1,5 @@
 library(sumR)
+library(tidyverse)
 source("../aux/aux.r")
 #######
 negativeBinomial_marginalised_lpmf_R <- function(k, theta){
@@ -17,7 +18,7 @@ Rcpp::cppFunction(code='
   {
   NumericVector output(n.size());
   for (int i = 0; i < n.size(); i++) {
-    if (p[4] > n[i]) output[i] = -INFINITY;
+    if (n[i] < p[3]) output[i] = -INFINITY;
     else
       output[i] = R::dnbinom_mu(n[i], p[1], p[0], true) +
         R::dbinom(p[3], n[i], p[2], true);
@@ -26,18 +27,18 @@ Rcpp::cppFunction(code='
   }')
 
 #######
-Mu <- 100
-Phi <- .05
-Eta <- .025
-obsX <- 20
+Mu <- 1
+Phi <- .1
+Eta <- .01
+obsX <- 0
 Theta <- c(Mu, Phi, Eta, obsX)
 lgL <- log(Mu) - matrixStats::logSumExp(c(log(Mu), log(Phi))) + log1p(-Eta)
 Eps <- .Machine$double.eps
 M <- 1E5
 TrueValue <- dnbinom(x = obsX, mu = Eta*Mu, size = Phi, log = TRUE)
 #######
-negativeBinomial_marginalised_lpmf_R(k = obsX + 2, theta = Theta)
-negativeBinomial_marginalised_lpmf_C(n = obsX + 2, p = Theta)
+negativeBinomial_marginalised_lpmf_R(k = obsX, theta = Theta)
+negativeBinomial_marginalised_lpmf_C(n = obsX, p = Theta)
 #######
 
 result.R <- compare_approximations(compute_lterm = negativeBinomial_marginalised_lpmf_R,
@@ -94,7 +95,7 @@ approximation.grid <- expand.grid(
   eps = 10^(0:6)*.Machine$double.eps
 )
 
-approximation.list <- lapply(
+approximation.list <- parallel::mclapply(
   1:nrow(approximation.grid),
   function(i){
     linha <- approximation.grid[i, ] ## linha == Portuguese for row
@@ -103,7 +104,7 @@ approximation.list <- lapply(
                 detp = linha$Eta,
                 obx = linha$X,
                 epsilon = linha$eps)      
-  })
+  }, mc.cores = 8)
 
 approximation.dt <- do.call(rbind, approximation.list)
 
@@ -111,32 +112,47 @@ approximation.dt$L_half <- ifelse(approximation.dt$L < 1/2, 1, 0)
 approximation.dt$theo_bound <- approximation.dt$target_error * approximation.dt$L /(1-approximation.dt$L)
 approximation.dt$theo_success <- abs(approximation.dt$error) <= approximation.dt$theo_bound 
 
-aggregate(success~method, approximation.dt, mean)
-aggregate(success~method+target_error, approximation.dt, mean)
-aggregate(success~method+target_error+L_half, approximation.dt, mean)
-aggregate(success~method+L_half, approximation.dt, mean)
-
-aggregate(theo_success~method, approximation.dt, mean)
-aggregate(theo_success~method+L_half, approximation.dt, mean)
-
-#### Investigating the instances in which adaptive/naive fails
-#### but the sum with a huge (3E5) number of terms does not.
-
 approximation.dt$row_id <- paste(approximation.dt$mu,
                                  approximation.dt$phi,
                                  approximation.dt$eta,
                                  approximation.dt$obs_x,
                                  approximation.dt$target_error,
                                  sep = "_")
-( fail.adapt <- subset(approximation.dt, method == "Adaptive" & !success) )
-( fail.naive <- subset(approximation.dt, method == "Naive" & !success) )
-( fail.huge <- subset(approximation.dt, method == "Fixed_3e+05" & !success) )
 
-interesting.naive <- subset(approximation.dt,
-       row_id %in% setdiff(fail.naive$row_id, fail.huge$row_id))
+approximation.dt <- approximation.dt %>%
+  group_by(row_id) %>%
+  mutate(comparative_error = abs(error)/abs(error[method == 'Fixed_3e+05']))
 
-interesting.adaptive <- subset(approximation.dt,
-       row_id %in% setdiff(fail.adapt$row_id, fail.huge$row_id))
+approximation.dt <- approximation.dt %>%
+  mutate(comparative_success = comparative_error <= 1)
 
-interesting.adaptive
-tail(interesting.adaptive)
+approximation.dt <- approximation.dt %>%
+  mutate(actual_success = as.logical(success + comparative_success))
+
+aggregate(success~method, approximation.dt, mean)
+aggregate(comparative_success~method, approximation.dt, mean)
+aggregate(actual_success~method, approximation.dt, mean)
+
+aggregate(success~method+target_error, approximation.dt, mean)
+aggregate(comparative_success~method+target_error, approximation.dt, mean)
+aggregate(actual_success~method+target_error, approximation.dt, mean)
+
+aggregate(success~method+target_error+L_half, approximation.dt, mean)
+aggregate(comparative_success~method+target_error+L_half, approximation.dt, mean)
+aggregate(actual_success~method+target_error+L_half, approximation.dt, mean)
+
+aggregate(success~method+L_half, approximation.dt, mean)
+aggregate(comparative_success~method+L_half, approximation.dt, mean)
+aggregate(actual_success~method+L_half, approximation.dt, mean)
+
+aggregate(theo_success~method, approximation.dt, mean)
+
+aggregate(theo_success~method+L_half, approximation.dt, mean)
+
+subset(approximation.dt,
+       !actual_success
+       & method == "Threshold")%>% print(n = 20)
+
+subset(approximation.dt,
+       !actual_success 
+       & method == "BoundingPair") %>% print(n = 10)
