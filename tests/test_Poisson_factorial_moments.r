@@ -1,4 +1,5 @@
 library(sumR)
+library(tidyverse)
 source("../aux/aux.r")
 #######
 poisson_lfactmom_R <- function(k, theta){
@@ -83,37 +84,45 @@ approximation.grid <- expand.grid(
   eps = 10^(0:6)*.Machine$double.eps
 )
 
-approximation.list <- lapply(
+approximation.list <- parallel::mclapply(
   1:nrow(approximation.grid),
   function(i){
     linha <- approximation.grid[i, ] ## linha == Portuguese for row
     spit_approx(lambda = linha$Mu,
                 order = linha$R,
                 epsilon = linha$eps)      
-  })
+  }, mc.cores = 8)
 
 approximation.dt <- do.call(rbind, approximation.list)
-
-aggregate(success~method, approximation.dt, mean)
-aggregate(success~method+target_error, approximation.dt, mean)
-
-
-#### Investigating the instances in which adaptive/naive fails
-#### but the sum with a huge (3E5) number of terms does not.
 
 approximation.dt$row_id <- paste(approximation.dt$mu,
                                   approximation.dt$r,
                                   approximation.dt$target_error,
                                   sep = "_")
-( fail.adapt <- subset(approximation.dt, method == "Adaptive" & !success) )
-( fail.naive <- subset(approximation.dt, method == "Naive" & !success) )
-( fail.huge <- subset(approximation.dt, method == "Fixed_3e+05" & !success) )
 
-interesting.naive <- subset(approximation.dt,
-                            row_id %in% setdiff(fail.naive$row_id, fail.huge$row_id))
+approximation.dt <- approximation.dt %>%
+  group_by(row_id) %>%
+  mutate(comparative_error = abs(error)/abs(error[method == 'Fixed_3e+05']))
 
-interesting.adaptive <- subset(approximation.dt,
-                               row_id %in% setdiff(fail.adapt$row_id, fail.huge$row_id))
+approximation.dt <- approximation.dt %>%
+  mutate(comparative_success = comparative_error <= 1)
 
-interesting.adaptive
-tail(interesting.adaptive)
+approximation.dt <- approximation.dt %>%
+  mutate(actual_success = as.logical(success + comparative_success))
+
+
+aggregate(success~method, approximation.dt, mean)
+aggregate(comparative_success~method, approximation.dt, mean)
+aggregate(actual_success~method, approximation.dt, mean)
+
+aggregate(success~method+target_error, approximation.dt, mean)
+aggregate(comparative_success~method+target_error, approximation.dt, mean)
+aggregate(actual_success~method+target_error, approximation.dt, mean)
+
+subset(approximation.dt,
+       !actual_success
+       & method == "Threshold")%>% print(n = 58)
+
+subset(approximation.dt,
+       !actual_success 
+       & method == "BoundingPair") %>% print(n = 28)
