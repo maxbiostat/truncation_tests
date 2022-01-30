@@ -120,6 +120,8 @@ compare_approximations <- function(compute_lterm, theta, exact,
     target_error = rep(eps, K),
     error = sapply(Sums,
                    function(x) robust_difference(x, exact)),
+    error_max = sapply(Sums,
+                   function(x) robust_difference(x, fixedMax$sum)),
     n_evaluations = Niters,
     sum = Sums,
     true = rep(exact, K)
