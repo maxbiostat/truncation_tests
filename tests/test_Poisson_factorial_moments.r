@@ -44,7 +44,6 @@ result.C <- compare_approximations(compute_lterm = poisson_lfactmom_C,
                                    eps = Eps,
                                    logL = lgL)
 
-
 result.preComp <- compare_approximations(
                        compute_lterm = "poisson_fact_moment",
                        theta = Theta,
@@ -71,7 +70,9 @@ spit_approx <- function(lambda, order, epsilon){
     r = order,
     target_error = ans$target_error,
     error = ans$error,
+    error_max = ans$error_max,
     success = abs(ans$error) <= ans$target_error,
+    success_max = abs(ans$error_max) <= ans$target_error,
     n_iter = ans$n_evaluations,
     method = ans$Method
   )
@@ -110,19 +111,39 @@ approximation.dt <- approximation.dt %>%
 approximation.dt <- approximation.dt %>%
   mutate(actual_success = as.logical(success + comparative_success))
 
+success <- aggregate(success~method, approximation.dt, mean)
+success.max <- aggregate(success_max~method, approximation.dt, mean)
+comparative <- aggregate(comparative_success~method, approximation.dt, mean)
+actual <- aggregate(actual_success~method, approximation.dt, mean)
 
-aggregate(success~method, approximation.dt, mean)
-aggregate(comparative_success~method, approximation.dt, mean)
-aggregate(actual_success~method, approximation.dt, mean)
+success.results <- plyr::join_all(list(success, success.max, comparative, actual),
+                          by = "method",
+                          type = "left",
+                          match = "all")
+
+success.results
+
+print(xtable::xtable(success), include.rownames = FALSE)
 
 aggregate(success~method+target_error, approximation.dt, mean)
+aggregate(success_max~method+target_error, approximation.dt, mean)
 aggregate(comparative_success~method+target_error, approximation.dt, mean)
 aggregate(actual_success~method+target_error, approximation.dt, mean)
 
-subset(approximation.dt,
+failThresh <- subset(approximation.dt,
        !actual_success
        & method == "Threshold")%>% print(n = 58)
 
-subset(approximation.dt,
+failThresh
+
+failBPair <- subset(approximation.dt,
        !actual_success 
        & method == "BoundingPair") %>% print(n = 28)
+
+failBPair
+
+suspicious <- subset(approximation.dt,
+               !success 
+               & comparative_error > 1.01)
+
+subset(approximation.dt, row_id %in% suspicious$row_id)

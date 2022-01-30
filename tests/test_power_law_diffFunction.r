@@ -47,7 +47,9 @@ spit_approx <- function(p0, L, epsilon){
     L = L,
     target_error = ans$target_error,
     error = ans$error,
+    error_max = ans$error_max,
     success = abs(ans$error) <= ans$target_error,
+    success_max = abs(ans$error_max) <= ans$target_error,
     n_iter = ans$n_evaluations,
     method = ans$Method
   )

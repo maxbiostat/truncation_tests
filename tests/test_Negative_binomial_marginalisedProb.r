@@ -80,7 +80,9 @@ spit_approx <- function(loc, disp, detp, obx, epsilon){
     L = exp(log(loc) - matrixStats::logSumExp(c(log(loc), log(disp))) + log1p(-detp)),
     target_error = ans$target_error,
     error = ans$error,
+    error_max = ans$error_max,
     success = abs(ans$error) <= ans$target_error,
+    success_max = abs(ans$error_max) <= ans$target_error,
     n_iter = ans$n_evaluations,
     method = ans$Method
   )
@@ -108,10 +110,6 @@ approximation.list <- parallel::mclapply(
 
 approximation.dt <- do.call(rbind, approximation.list)
 
-approximation.dt$L_half <- ifelse(approximation.dt$L < 1/2, 1, 0)
-approximation.dt$theo_bound <- approximation.dt$target_error * approximation.dt$L /(1-approximation.dt$L)
-approximation.dt$theo_success <- abs(approximation.dt$error) <= approximation.dt$theo_bound 
-
 approximation.dt$row_id <- paste(approximation.dt$mu,
                                  approximation.dt$phi,
                                  approximation.dt$eta,
@@ -123,15 +121,34 @@ approximation.dt <- approximation.dt %>%
   group_by(row_id) %>%
   mutate(comparative_error = abs(error)/abs(error[method == 'Fixed_3e+05']))
 
+approximation.dt <- approximation.dt %>% 
+  mutate(L_half = ifelse(L > 1/2, 1, 0))
+
+approximation.dt <- approximation.dt %>% 
+  mutate(theo_bound = target_error * L /(1-L))
+
+approximation.dt <- approximation.dt %>% 
+  mutate(theo_success = abs(error) <= theo_bound )
+
 approximation.dt <- approximation.dt %>%
   mutate(comparative_success = comparative_error <= 1)
 
 approximation.dt <- approximation.dt %>%
   mutate(actual_success = as.logical(success + comparative_success))
 
-aggregate(success~method, approximation.dt, mean)
-aggregate(comparative_success~method, approximation.dt, mean)
-aggregate(actual_success~method, approximation.dt, mean)
+success <- aggregate(success~method+L_half, approximation.dt, mean)
+success.max <- aggregate(success_max~method+L_half, approximation.dt, mean)
+comparative <- aggregate(comparative_success~method+L_half, approximation.dt, mean)
+actual <- aggregate(actual_success~method+L_half, approximation.dt, mean)
+
+success.results <- plyr::join_all(list(success, success.max, comparative, actual),
+                                  by = c("method", "L_half"),
+                                  type = "left",
+                                  match = "all")
+
+success.results
+
+print(xtable::xtable(success), include.rownames = FALSE)
 
 aggregate(success~method+target_error, approximation.dt, mean)
 aggregate(comparative_success~method+target_error, approximation.dt, mean)
@@ -156,3 +173,8 @@ subset(approximation.dt,
 subset(approximation.dt,
        !actual_success 
        & method == "BoundingPair") %>% print(n = 10)
+
+suspicious <- subset(approximation.dt, success & !success_max)
+suspicious
+
+subset(approximation.dt, row_id == suspicious$row_id[1])

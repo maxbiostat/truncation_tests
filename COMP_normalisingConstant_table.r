@@ -28,6 +28,13 @@ spit_approx <- function(Mu, Nu, Eps, M){
                                 maxIter = M,
                                 n0 = 0,
                                 forceAlgorithm = 2)
+  
+  batch <- sumR::infiniteSum_batches(logFunction = COMP_lpmf_2,
+                                parameters = Theta,
+                                batch_size = 20,
+                                epsilon = Eps,
+                                maxIter = M,
+                                n0 = 0)
   results <- tibble::tibble(
     rbind(
       data.frame(
@@ -45,6 +52,14 @@ spit_approx <- function(Mu, Nu, Eps, M){
         logZ = adaptive$sum,
         n_iter = adaptive$n,
         algorithm = "bounding_pair"
+      ),
+      data.frame(
+        mu = Mu, 
+        nu = Nu,
+        epsilon = Eps,
+        logZ = batch$sum,
+        n_iter = batch$n,
+        algorithm = "batches"
       )
     )
   )
@@ -52,8 +67,8 @@ spit_approx <- function(Mu, Nu, Eps, M){
 }
 #############
 
-target.eps <- .Machine$double.eps
-maxIter <- 3E5
+target.eps <- .Machine$double.eps*1E6
+maxIter <- 4E5
 
 approximation.grid <- data.frame(
   Mu = c(10, 100, 1000, 10000),
