@@ -1,48 +1,56 @@
 library(sumR)
 library(bbmle)
 source("Erlang_aux.r")
+source("Erlang_hessian.R")
 #############################
-nll_adaptive <- function(log_mu, log_beta, data){
-  theta <- exp(c(log_mu, log_beta))
-  -marginal_loglikelihood(data,
-                          pars = theta,
-                          eps =.Machine$double.eps,
-                          verbose = FALSE)
-}
-nll_fixed <- function(log_mu, log_beta, data, Nit = 1000){
-  theta <- exp(c(log_mu, log_beta))
-  -marginal_loglikelihood(data,
-                          adaptive = FALSE,
-                          pars = theta,
-                          eps =.Machine$double.eps,
-                          N_fix = Nit,
-                          verbose = FALSE)
-}
-nll_adaptive_full <- function(log_mu, log_beta, data){
-  theta <- exp(c(log_mu, log_beta))
-  -marginal_loglikelihood_full_fast(data,
-                                    pars = theta,
-                                    eps =.Machine$double.eps,
-                                    verbose = FALSE)
-}
-nll_fixed_full <- function(log_mu, log_beta, data, Nit = 1000){
-  theta <- exp(c(log_mu, log_beta))
-  -marginal_loglikelihood_full_fast(data,
-                                    adaptive = FALSE,
-                                    pars = theta,
-                                    eps =.Machine$double.eps,
-                                    N_fix = Nit,
-                                    verbose = FALSE)
-}
-
-get_estimates <- function(the.data, minusloglik_fun,
-                          true.Mu = NA, true.Beta = NA){
+get_estimates <- function(data,
+                          Mu, Beta,
+                          fn = "BesselAdaptive",
+                          conf.level = 0.95,
+                          compute_Hessian = TRUE){
   
-  mod_nll <- function(log_mu, log_beta){
-    minusloglik_fun(log_mu = log_mu,
-                    log_beta = log_beta,
-                    data = the.data)
+  nll_adaptive <- function(log_mu, log_beta){
+    theta <- exp(c(log_mu, log_beta))
+    -marginal_loglikelihood(data,
+                            pars = theta,
+                            eps =.Machine$double.eps,
+                            verbose = FALSE)
   }
+  
+  nll_fixed <- function(log_mu, log_beta){
+    theta <- exp(c(log_mu, log_beta))
+    -marginal_loglikelihood(data,
+                            adaptive = FALSE,
+                            pars = theta,
+                            eps = .Machine$double.eps,
+                            N_fix = 1000,
+                            verbose = FALSE)
+  }
+  
+  nll_fixed_full <- function(log_mu, log_beta){
+    theta <- exp(c(log_mu, log_beta))
+    -marginal_loglikelihood_full_fast(data,
+                                 adaptive = FALSE,
+                                 pars = theta,
+                                 eps =.Machine$double.eps,
+                                 N_fix = 1000,
+                                 verbose = FALSE)
+  }
+  
+  nll_adaptive_full_fast <- function(log_mu, log_beta){
+    theta <- exp(c(log_mu, log_beta))
+    -marginal_loglikelihood_full_fast(data,
+                                      pars = theta,
+                                      eps =.Machine$double.eps,
+                                      verbose = FALSE)
+  }
+  
+  minusloglik_fun <- switch(fn,
+    "BesselFixed" = nll_fixed,
+    "BesselAdaptive" = nll_adaptive,
+    "FullFixed" = nll_fixed_full,
+    "FullAdaptive" = nll_adaptive_full_fast
+  )
   
   inits <- log(
     c(runif(1, 1, 100),
@@ -50,7 +58,7 @@ get_estimates <- function(the.data, minusloglik_fun,
   )
   
   running.time <- system.time(
-    MLE <- bbmle::mle2(minuslogl = mod_nll,
+    MLE <- bbmle::mle2(minuslogl = minusloglik_fun,
                        start = list(log_mu = inits[1],
                                     log_beta = inits[2]),
                        method = "L-BFGS-B"
@@ -61,20 +69,37 @@ get_estimates <- function(the.data, minusloglik_fun,
   
   point.ests <- as.numeric(summy@coef[, 1])
   MLE.se <- as.numeric(summy@coef[, 2])
-  conf.level <- 0.95
+  
   Z <- qnorm(p = (1 + conf.level)/2)
   
   MLE.lower <- point.ests - Z*MLE.se
   MLE.upper <- point.ests + Z*MLE.se
   
+  if(compute_Hessian){
+    Hess <- erlangHessian(x = data$obs_x,
+                          mu = exp(point.ests)[1],
+                          beta = exp(point.ests)[2])
+    exactVcov <- solve(-Hess)
+    exactSEs <- sqrt(diag(exactVcov))
+    
+    exact.MLE.lower <- exp(point.ests) - Z*exactSEs
+    exact.MLE.upper <- exp(point.ests) + Z*exactSEs
+  }else{
+    exact.MLE.lower <- rep(NA, 2)
+    exact.MLE.upper <- rep(NA, 2)
+  }
+  
   MLE.ests <- tibble::tibble(
     parameter = c("mu", "beta"),
-    true = c(true.Mu, true.Beta),
+    true = c(Mu, Beta),
     point =  exp(point.ests),
     lwr = exp(MLE.lower),
     upr = exp(MLE.upper),
+    lwr_exact = exact.MLE.lower,
+    upr_exact = exact.MLE.upper,
     time = running.time[3]
   )
+  
   return(
     list(
       obj = MLE,
@@ -82,6 +107,41 @@ get_estimates <- function(the.data, minusloglik_fun,
     )
   )
 }
+#############################
+get_all_estimates <- function(dt, Mu, Beta){
+
+  est.fixed <- get_estimates(data = dt,
+                             Mu = Mu, Beta = Beta,
+                             fn = "BesselFixed")
+  est.adaptive <- get_estimates(data = dt,
+                                Mu = Mu, Beta = Beta,
+                                fn = "BesselAdaptive")
+  est.fixed.full <- get_estimates(data = dt,
+                                  Mu = Mu, Beta = Beta,
+                                  fn = "FullFixed")
+  est.adaptive.full.fast <- get_estimates(data = dt,
+                                          Mu = Mu, Beta = Beta,
+                                          fn = "FullAdaptive")
+  outl <- list(
+    tibble::tibble(est.fixed$results,
+                   implementation = "Bessel",
+                   method = "Fixed"),
+    tibble::tibble(est.adaptive$results,
+                   implementation = "Bessel",
+                   method = "Adaptive"),
+    tibble::tibble(est.fixed.full$results,
+                   implementation = "Full",
+                   method = "Fixed"),
+    tibble::tibble(est.adaptive.full.fast$results,
+                   implementation = "Full",
+                   method = "Adaptive")
+  )
+  return(
+    do.call(rbind, outl)
+  )
+}
+
+
 #############################
 simulate_and_fit_once <- function(i,
                                   Mu,
@@ -91,54 +151,19 @@ simulate_and_fit_once <- function(i,
   logname <- paste0("Mu=", Mu, "_Beta=", Beta, "_K=", K, ".log")
   write(paste0("Doing replicate ", i),
         file = logname, append = TRUE)
-  ##
   
   dt <- simulate_obsdata(n = K, mu = Mu, b = Beta,
                          seed = i)
-  
-  # fit.bessel.fixed <- get_estimates(the.data = dt,
-  #                                   minusloglik_fun = nll_fixed,
-  #                                   true.Mu = Mu, true.Beta = Beta)
-  # 
-  # fit.bessel.fixed$results$implementation <- "Bessel"
-  # fit.bessel.fixed$results$approach <- "fixed"
-  
-  fit.bessel.adaptive <- get_estimates(the.data = dt,
-                                       minusloglik_fun = nll_adaptive,
-                                       true.Mu = Mu, true.Beta = Beta)
-
-  fit.bessel.adaptive$results$implementation <- "Bessel"
-  fit.bessel.adaptive$results$approach <- "adaptive"
-  
-  # fit.full.fixed <- get_estimates(the.data = dt,
-  #                                 minusloglik_fun = nll_fixed_full,
-  #                                 true.Mu = Mu, true.Beta = Beta)
-  # 
-  # fit.full.fixed$results$implementation <- "Full"
-  # fit.full.fixed$results$approach <- "fixed"
-  
-  fit.full.adaptive <- get_estimates(the.data = dt,
-                                     minusloglik_fun = nll_adaptive_full,
-                                     true.Mu = Mu, true.Beta = Beta)
-
-  fit.full.adaptive$results$implementation <- "Full"
-  fit.full.adaptive$results$approach <- "adaptive"
-
-  ## Assembly
-  
-  out <- do.call(rbind, 
-                 list(
-                   # fit.bessel.fixed$results,
-                   fit.bessel.adaptive$results,
-                   # fit.full.fixed$results,
-                   fit.full.adaptive$results
-                 ))
+  out <- get_all_estimates(dt = dt,
+                           Mu = Mu,
+                           Beta = Beta)
   out$replicate <- i
   return(out)
 }
 simulate_and_fit_reps <- function(Nrep, Mu, Beta, K, ncores = 2){
   
   logname <- paste0("Mu=", Mu, "_Beta=", Beta, "_K=", K, ".log")
+  
   system(
     paste("rm ", logname) ## deleting old log files
   )
@@ -151,24 +176,23 @@ simulate_and_fit_reps <- function(Nrep, Mu, Beta, K, ncores = 2){
                                                     K = K)
                             },
                             mc.cores = ncores)
+  save(raw, 
+       file = paste0("Mu=", Mu, "_Beta=", Beta, "_K=", K, ".RData"))
   return(
     do.call(rbind, raw)
   )
 }
 
-Nreps <- 200
+MM <- 1500
+BB <- .1
+J <- 50 
+  
+Nreps <- 500
 simus <- simulate_and_fit_reps(Nrep = Nreps,
-                               Mu = 1500,
-                               Beta = 1,
-                               K = 5,
-                               ncores = 8)
-simus
-
-# problematic <- setdiff(1:Nreps, unique(simus$replicate))
-# 
-# simulate_and_fit_once(
-#   i = problematic[1],
-#   Mu = 1500,
-#   Beta = 1,
-#   K = 5
-# )
+                               Mu = MM,
+                               Beta = BB,
+                               K = J,
+                               ncores = 6)
+write.csv(simus,
+          file = paste0("Mu=", MM, "_Beta=", BB, "_K=", J, ".csv"),
+          row.names = FALSE)

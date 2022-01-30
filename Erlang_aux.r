@@ -26,20 +26,20 @@ marg_lik <- function(x, pars, eps = .Machine$double.eps,
   
   mu <- pars[1]
   b <- pars[2]
-  z <- mu*b*x
+  log_z <- log(mu) + log(b) + log(x)
 
   if(adaptive){
-    bessel.sumR <- sumR::infiniteSum(logFunction = "bessel_I",
-                                           parameters = c(2*sqrt(z), 1),
+    bessel.sumR <- sumR::infiniteSum(logFunction = "bessel_I_logX",
+                                           parameters = c(log(2) + log_z/2, 1),
                                            epsilon = eps)
     if(verbose) cat("Marginalised probability took", bessel.sumR$n,
                     "iterations \n")
   }else{
-    bessel.sumR <- sumR::finiteSum(logFunction = "bessel_I",
-                                         parameters = c(2*sqrt(z), 1),
+    bessel.sumR <- sumR::finiteSum(logFunction = "bessel_I_logX",
+                                         parameters = c(log(2) + log_z/2, 1),
                                          n = N_fix)
   }
-  ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.sumR$sum
+  ans <- -(mu + b*x) - log(x) + log_z/2 + bessel.sumR$sum
   return(ans-log1p(-exp(-mu)))
 }
 
@@ -52,102 +52,6 @@ marginal_loglikelihood <- function(data, pars,
       marg_lik(x = data$obs_x[i], pars = pars,
                               eps = eps, adaptive = adaptive,
                               N_fix = N_fix, verbose = verbose) 
-    })
-  )
-  
-  return(sum(logliks))
-}
-
-### Bessel-only likelihood with nae checks
-Rcpp::sourceCpp(code='
-#include <Rcpp.h>
-
-// [[Rcpp::depends(sumR)]]
-
-#include <sumRAPI.h>
-
-long double bessel_lterm(long k, double *Theta)
-{
-  return (2 * k + Theta[1]) * (logl(Theta[0]) - log(2)) -
-    lgammal(k + 1) - lgammal(Theta[1] + k + 1);
-}
-
-// [[Rcpp::export]]
-double bessel_I_fast(Rcpp::NumericVector parameters, double epsilon = 1E-16,
-  long maxIter = 100000)
-{
-  double parameter[2];
-  long double r;
-  long n; // Number of iterations. Does not require initialization.
-
-  parameter[0] = parameters[0];
-  parameter[1] = parameters[1];
-
-  r = infiniteSum(bessel_lterm, parameter, -INFINITY, 0,
-                  epsilon, maxIter, 0, &n);
-  // Rcpp::Rcout << "Summation took " << n << " iterations to converge.\\n";
-
-  return (double)r;
-}
-')
-
-Rcpp::sourceCpp(code='
-#include <Rcpp.h>
-
-// [[Rcpp::depends(sumR)]]
-
-#include <sumRAPI.h>
-
-long double bessel_lterm(long k, double *Theta)
-{
-  return (2 * k + Theta[1]) * (logl(Theta[0]) - log(2)) -
-    lgammal(k + 1) - lgammal(Theta[1] + k + 1);
-}
-
-// [[Rcpp::export]]
-double bessel_I_fast_fixed(Rcpp::NumericVector parameters, long iterations)
-{
-  double parameter[2];
-  long double r;
-  long n; // Number of iterations. Does not require initialization.
-
-  parameter[0] = parameters[0];
-  parameter[1] = parameters[1];
-
-  r = sumNTimes(bessel_lterm, parameter, iterations, 0);
-  
-  return (double)r;
-}
-')
-
-marg_lik_fast <- function(x, pars, eps = .Machine$double.eps,
-                     adaptive = TRUE, N_fix = 1000, verbose = FALSE){
-  
-  mu <- pars[1]
-  b <- pars[2]
-  z <- mu*b*x
-  
-  
-  if(adaptive){
-    bessel.nocheck <- bessel_I_fast(parameters = c(2*sqrt(z), 1),
-                                    epsilon = eps)
-  }else{
-    bessel.nocheck <- bessel_I_fast_fixed(parameters = c(2*sqrt(z), 1),
-                                          N_fix)
-  }
-  ans <- -(mu + b*x) - log(x) + log(z)/2 + bessel.nocheck
-  return(ans-log1p(-exp(-mu)))
-}
-
-marginal_loglikelihood_fast <- function(data, pars, 
-                                   eps = .Machine$double.eps,
-                                   adaptive = TRUE, N_fix = NULL,
-                                   verbose = FALSE){
-  logliks <- unlist(
-    lapply(1:data$K, function(i){
-      marg_lik_fast(x = data$obs_x[i], pars = pars,
-               eps = eps, adaptive = adaptive,
-               N_fix = N_fix, verbose = verbose) 
     })
   )
   
@@ -206,7 +110,7 @@ Rcpp::sourceCpp(code='
 
 // [[Rcpp::depends(sumR)]]
 
-#include <sumRAPI.h>
+#include <sumR.h>
 
 long double erlang(long n, double *p)
 {
@@ -239,7 +143,7 @@ Rcpp::sourceCpp(code='
 
 // [[Rcpp::depends(sumR)]]
 
-#include <sumRAPI.h>
+#include <sumR.h>
 
 long double erlang(long n, double *p)
 {
