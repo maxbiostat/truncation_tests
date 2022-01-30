@@ -21,9 +21,11 @@ my_dilog <- function(z)
 
 ##############3
 
-Eps <- .Machine$double.eps *10
-M <- 1E5
+Eps <- .Machine$double.eps
+M <- 5E5
 a1 <- 2
+L1 <- 1/a1
+B1 <- 1/(a1-1)
 
 lps.1 <- sapply(0:(2*M),
                 function(j) compute_lterm(n = j, p = a1))
@@ -49,19 +51,19 @@ adaptive.1 <- sumR::infiniteSum(
   forceAlgorithm = 2
 )
 
-doubling.1 <- sumR::infiniteSum_cFolding_C(
+batches.1 <- sumR::infiniteSum_batches_C(
   logFunction = compute_lterm,
   parameters = a1,
   epsilon = Eps,
   maxIter = M,
   n0 = 0,
-  c = 2,
-  N_start = 10
+  batch_size = 2
 )
 
 ####################
-a2 <- 1.0005
+a2 <- 1.1
 L2 <- 1/a2
+B2 <- 1/(a2-1)
 
 lps.2 <- sapply(0:(2*M),
                 function(j) compute_lterm(n = j, p = a2))
@@ -87,50 +89,118 @@ adaptive.2 <- sumR::infiniteSum(
   forceAlgorithm = 2
 )
 
-doubling.2 <- sumR::infiniteSum_cFolding_C(
+batches.2 <- sumR::infiniteSum_batches_C(
   logFunction = compute_lterm,
   parameters = a2,
   epsilon = Eps,
   maxIter = M,
   n0 = 0,
-  c = 2,
-  N_start = 10
+  batch_size = round(B2/2)
+)
+
+batches.2.correct <- sumR::infiniteSum_batches_C(
+  logFunction = compute_lterm,
+  parameters = a2,
+  epsilon = Eps,
+  maxIter = M,
+  n0 = 0,
+  batch_size = B2 + 1
 )
 
 source("../aux/aux.r")
 
+out1a <- tibble::tibble(
+  method = c("Threshold", "BoundingPair", "Batches"),
+  target_error = Eps,
+  L = L1,
+  a = a1,
+  error = c(
+    robust_difference(x = TV.1, y = naive.1$sum),
+    robust_difference(x = TV.1, y = adaptive.1$sum),
+    robust_difference(x = TV.1, y = batches.1$sum)
+  ),
+  n_iter = c(
+    naive.1$n,
+    adaptive.1$n,
+    batches.1$n
+  ),
+  true_method = "Huge"
+)
+
+out1b <- tibble::tibble(
+  method = c("Threshold", "BoundingPair", "Batches"),
+  target_error = Eps,
+  L = L1,
+  a = a1,
+  error = c(
+    robust_difference(x = TTV.1, y = naive.1$sum),
+    robust_difference(x = TTV.1, y = adaptive.1$sum),
+    robust_difference(x = TTV.1, y = batches.1$sum)
+  ),
+  n_iter = c(
+    naive.1$n,
+    adaptive.1$n,
+    batches.1$n
+  ),
+  true_method = "Closed-form"
+)
+
+out1 <- rbind(out1a, out1b)
+
+
+out2a <- tibble::tibble(
+  method = c("Threshold", "BoundingPair",
+             "Batches_wrong", "Batches_right"),
+  target_error = Eps,
+  L = L2,
+  a = a2,
+  error = c(
+    robust_difference(x = TV.2, y = naive.2$sum),
+    robust_difference(x = TV.2, y = adaptive.2$sum),
+    robust_difference(x = TV.2, y = batches.2$sum),
+    robust_difference(x = TV.2, y = batches.2.correct$sum)
+  ),
+  n_iter = c(
+    naive.2$n,
+    adaptive.2$n,
+    batches.2$n,
+    batches.2.correct$n
+  ),
+  true_method = "Huge"
+)
+
+out2b <- tibble::tibble(
+  method = c("Threshold", "BoundingPair",
+             "Batches_wrong", "Batches_right"),
+  target_error = Eps,
+  L = L2,
+  a = a2,
+  error = c(
+    robust_difference(x = TTV.2, y = naive.2$sum),
+    robust_difference(x = TTV.2, y = adaptive.2$sum),
+    robust_difference(x = TTV.2, y = batches.2$sum),
+    robust_difference(x = TTV.2, y = batches.2.correct$sum)
+  ),
+  n_iter = c(
+    naive.2$n,
+    adaptive.2$n,
+    batches.2$n,
+    batches.2.correct$n
+  ),
+  true_method = "dilogarithm"
+)
+
+out2 <- rbind(out2a, out2b)
+
+##################
+
+out1 
 robust_difference(x = TV.1, y = TTV.1)
 
-robust_difference(x = TV.1, y = naive.1$sum)
-robust_difference(x = TV.1, y = adaptive.1$sum)
-robust_difference(x = TV.1, y = doubling.1$sum)
-Eps
-
-robust_difference(x = TTV.1, y = naive.1$sum)
-robust_difference(x = TTV.1, y = adaptive.1$sum)
-robust_difference(x = TTV.1, y = doubling.1$sum)
-Eps
-
-e2 <- Eps * exp(-log(a2)-log1p(-L2))  ## This should be theoretical bound
-
+out2
+Eps * exp(-log(a2)-log1p(-L2))  ## This should be theoretical bound
 robust_difference(x = TV.2, y = TTV.2)
 
-robust_difference(x = TV.2, y = naive.2$sum)
-robust_difference(x = TV.2, y = adaptive.2$sum)
-robust_difference(x = TV.2, y = doubling.2$sum)
-Eps
-e2
-
-robust_difference(x = TTV.2, y = naive.2$sum)
-robust_difference(x = TTV.2, y = adaptive.2$sum)
-robust_difference(x = TTV.2, y = doubling.2$sum)
-Eps
-e2
-
-naive.1$n
-adaptive.1$n
-doubling.1$n
-
-naive.2$n
-adaptive.2$n
-doubling.2$n
+subset(rbind(out1, out2), true_method == "Huge")
+B1
+B2
