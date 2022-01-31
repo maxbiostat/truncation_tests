@@ -1,68 +1,21 @@
 library(sumR)
 library(tidyverse)
 source("../aux/aux.r")
-#######
-poisson_lfactmom_R <- function(k, theta){
-  x <- theta[2]
-  ans <- ifelse(k < x, -Inf,
-                lfactorial(k) - lfactorial(k-x) +
-                  dpois(x = k, lambda = theta[1], log = TRUE))
-  return(ans)
-}
-
-Rcpp::cppFunction(code='
-  NumericVector poisson_lfactmom_C(IntegerVector n, NumericVector p)
-  {
-  NumericVector output(n.size());
-  for (int i = 0; i < n.size(); i++) {
-    if (p[1] > n[i]) output[i] = -INFINITY;
-    else
-      output[i] = R::dpois(n[i], p[0], true) +
-      lgamma(n[i] + 1) - lgamma(n[i] - p[1] + 1);
-  }
-  return output;
-  }')
+source("../aux/Poisson_aux.r")
 
 #######
-Mu <- 11.8 ## try 11.8 and 11.9 and 12.8 and be amazed
-R <- 2
-Theta <- c(Mu, R)
-TrueValue <- R*log(Mu)
-Eps <- .Machine$double.eps*1E4
-lgL <- log(0)
-#######
-
-result.R <- compare_approximations(compute_lterm = poisson_lfactmom_R,
-                                 theta = Theta,
-                                 exact = TrueValue,
-                                 eps = Eps,
-                                 logL = lgL)
-
-result.C <- compare_approximations(compute_lterm = poisson_lfactmom_C,
-                                   theta = Theta,
-                                   exact = TrueValue,
-                                   eps = Eps,
-                                   logL = lgL)
-
-result.preComp <- compare_approximations(
-                       compute_lterm = "poisson_fact_moment",
-                       theta = Theta,
-                       exact = TrueValue,
-                       eps = Eps)
-
-result.R
-result.C
-result.preComp
-
-####
 ##$ Table
+
+Miter <- 5E5
+name.huge <- paste0('Fixed_', Miter)
+
 spit_approx <- function(lambda, order, epsilon){
   ans <- suppressWarnings(
     compare_approximations(
       compute_lterm = "poisson_fact_moment",
       theta = c(lambda, order),
       exact = order*log(lambda),
-      max_iter = 3E5,
+      max_iter = Miter,
       eps = epsilon)
   ) 
   out <- tibble::tibble(
@@ -103,7 +56,7 @@ approximation.dt$row_id <- paste(approximation.dt$mu,
 
 approximation.dt <- approximation.dt %>%
   group_by(row_id) %>%
-  mutate(comparative_error = abs(error)/abs(error[method == 'Fixed_3e+05']))
+  mutate(comparative_error = abs(error)/abs(error[method == name.huge]))
 
 approximation.dt <- approximation.dt %>%
   mutate(comparative_success = comparative_error <= 1)
