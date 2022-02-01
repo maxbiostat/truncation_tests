@@ -27,7 +27,7 @@ a1 <- 2
 L1 <- 1/a1
 B1 <- 1/(a1-1)
 
-lps.1 <- sapply(0:(2*M),
+lps.1 <- sapply(0:(1E6),
                 function(j) compute_lterm(n = j, p = a1))
 TV.1 <- matrixStats::logSumExp(sort(lps.1))
 TTV.1 <- log(1/12 * (pi^2 - 6*log(2)^2))
@@ -65,7 +65,7 @@ a2 <- 1.1
 L2 <- 1/a2
 B2 <- 1/(a2-1)
 
-lps.2 <- sapply(0:(2*M),
+lps.2 <- sapply(0:(1E6),
                 function(j) compute_lterm(n = j, p = a2))
 TV.2 <- matrixStats::logSumExp(sort(lps.2))
 TTV.2 <- log(my_dilog(1/a2))
@@ -198,9 +198,11 @@ out1
 robust_difference(x = TV.1, y = TTV.1)
 
 out2
-Eps * exp(-log(a2)-log1p(-L2))  ## This should be theoretical bound
+Eps * exp(-log(a2)-log1p(-L2))  ## This should be theoretical upper bound on the error
 robust_difference(x = TV.2, y = TTV.2)
 
 subset(rbind(out1, out2), true_method == "Huge")
 B1
 B2
+
+
