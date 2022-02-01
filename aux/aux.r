@@ -56,14 +56,14 @@ compare_approximations <- function(compute_lterm, theta, exact,
     forceAlgorithm = 2
   )
 
-  # batches <- sumR::infiniteSum_batches(
-  #   logFunction = compute_lterm,
-  #   parameters = theta,
-  #   epsilon = eps,
-  #   batch_size = batch_size,
-  #   maxIter = max_iter,
-  #   n0 = n0
-  # )
+  batches <- sumR::infiniteSum_batches(
+    logFunction = compute_lterm,
+    parameters = theta,
+    epsilon = eps,
+    batch_size = batch_size,
+    maxIter = max_iter,
+    n0 = n0
+  )
 
   batches_C <- sumR::infiniteSum_batches_C(
     logFunction = compute_lterm,
@@ -90,13 +90,13 @@ compare_approximations <- function(compute_lterm, theta, exact,
 
   ##
   Sums <- c(naive$sum,
-            # batches$sum,
+            batches$sum,
             batches_C$sum,
             adaptive$sum,
             fixed$sum,
             fixedMax$sum)
   Niters <- c(naive$n,
-              # batches$n,
+              batches$n,
               batches_C$n,
               adaptive$n,
               Nfix,
@@ -105,7 +105,7 @@ compare_approximations <- function(compute_lterm, theta, exact,
   ##
   out <- data.frame(
     Method = c("Threshold",
-               # "Batches",
+               "Batches",
                "Batches_C",
                "BoundingPair",
                paste0("Fixed_", Nfix),
