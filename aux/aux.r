@@ -36,7 +36,8 @@ compare_approximations <- function(compute_lterm, theta, exact,
                                    batch_size = 20,
                                    Nfix = 1000,
                                    max_iter = 3E5,
-                                   logL = -Inf){
+                                   logL = -Inf,
+                                   include_Rbatches = FALSE){
   naive <- sumR::infiniteSum(
     logFunction = compute_lterm,
     parameters = theta,
@@ -55,15 +56,16 @@ compare_approximations <- function(compute_lterm, theta, exact,
     n0 = n0,
     forceAlgorithm = 2
   )
-
-  batches <- sumR::infiniteSum_batches(
-    logFunction = compute_lterm,
-    parameters = theta,
-    epsilon = eps,
-    batch_size = batch_size,
-    maxIter = max_iter,
-    n0 = n0
-  )
+  if(include_Rbatches){
+    batches <- sumR::infiniteSum_batches(
+      logFunction = compute_lterm,
+      parameters = theta,
+      epsilon = eps,
+      batch_size = batch_size,
+      maxIter = max_iter,
+      n0 = n0
+    )  
+  }
 
   batches_C <- sumR::infiniteSum_batches_C(
     logFunction = compute_lterm,
@@ -87,29 +89,36 @@ compare_approximations <- function(compute_lterm, theta, exact,
     n0 = n0,
     n = max_iter
   )
-
-  ##
-  Sums <- c(naive$sum,
-            batches$sum,
-            batches_C$sum,
-            adaptive$sum,
-            fixed$sum,
-            fixedMax$sum)
-  Niters <- c(naive$n,
-              batches$n,
-              batches_C$n,
-              adaptive$n,
-              Nfix,
-              max_iter)
+  
+  if(include_Rbatches){
+    all.methods <- list(
+      naive, batches,
+      batches_C, adaptive,
+      fixed, fixedMax
+    )
+    names(all.methods) <- c("Threshold", "Batches", "Batches_C",
+                            "BoundingPair", paste0("Fixed_", Nfix),
+                            paste0("Fixed_", max_iter))
+  }else{
+    all.methods <- list(
+      naive,
+      batches_C, adaptive,
+      fixed, fixedMax
+    )
+    names(all.methods) <- c("Threshold", "Batches_C",
+                            "BoundingPair", paste0("Fixed_", Nfix),
+                            paste0("Fixed_", max_iter))
+  }
+  
+ method.names <- names(all.methods)
+  
+  Sums <-  unlist(lapply(all.methods, function(x) x$sum))
+  Niters <- unlist(lapply(all.methods, function(x) x$n))
+  
   K <- length(Sums)
-  ##
+  
   out <- data.frame(
-    Method = c("Threshold",
-               "Batches",
-               "Batches_C",
-               "BoundingPair",
-               paste0("Fixed_", Nfix),
-               paste0("Fixed_", max_iter)),
+    Method = method.names,
     error_logspace = Sums-exact,
     # relative_error_logspace = sapply(Sums,
     #                                  function(x) relative_difference(x, exact)),

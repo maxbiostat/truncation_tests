@@ -34,8 +34,8 @@ spit_approx <- function(lambda, order, epsilon){
 
 approximation.grid <- expand.grid(
   Mu = c(0.5, 1, 10, 100),
-  R = c(2, 3, 5, 10),
-  eps = 10^(0:6)*.Machine$double.eps
+  R = c(2, 5, 10),
+  eps = 10^(c(0, 1, 4))*.Machine$double.eps
 )
 
 approximation.list <- parallel::mclapply(
@@ -76,7 +76,9 @@ success.results <- plyr::join_all(list(success, success.max, comparative, actual
 
 success.results
 
-print(xtable::xtable(success), include.rownames = FALSE)
+to.present <- success.results
+to.present$success_max <- NULL
+print(xtable::xtable(to.present), include.rownames = FALSE)
 
 aggregate(success~method+target_error, approximation.dt, mean)
 aggregate(success_max~method+target_error, approximation.dt, mean)
