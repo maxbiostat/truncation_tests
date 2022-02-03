@@ -1,45 +1,24 @@
 library(tidyverse)
 library(sumR)
 source("../aux/aux.r")
-#######
-PL_diff_function_direct <- function(k, theta){
-  alpha <- theta[1]
-  xmin <- theta[2]
-  phi <- theta[3:4]
-  ans <- sapply(k, function(k) ifelse(k < xmin,  -Inf,
-                                      -alpha*log(k) + logDiffExp(0, -phi[1] - phi[2] * (k-xmin)))
-  )
-  return(ans)
-}
-
-#######
-delta <- .Machine$double.eps
-Phi0 <- .1
-Phi <- c(Phi0, 0)
-Theta <- c(2, 1,  Phi)
-lgL <- log(1-delta)
-Eps <- delta
-TrueValue <- logDiffExp(0, -Phi[1]) + 2*log(pi) - log(6)
-
-result.R <- compare_approximations(compute_lterm = PL_diff_function_direct,
-                                 theta = Theta,
-                                 exact = TrueValue,
-                                 eps = Eps,
-                                 logL = lgL)
-
-
-result.R
-
+source("../aux/powerLaw_aux.r")
 ####
 ##$ Table
+run <- TRUE
+
+Miter <- 5E5
+name.huge <- paste0('Fixed_', Miter)
+
 spit_approx <- function(p0, L, epsilon){
+  B <- max(L/(1-L), 1)
   ans <- suppressWarnings(
     compare_approximations(
       compute_lterm = PL_diff_function_direct,
       theta =  c(2, 1, p0, 0),
       logL = log(L),
       exact = logDiffExp(0, -p0) + 2*log(pi) - log(6),
-      max_iter = 3E5,
+      batch_size = B + 1,
+      max_iter = Miter,
       eps = epsilon)
   ) 
   out <- tibble::tibble(
@@ -58,11 +37,9 @@ spit_approx <- function(p0, L, epsilon){
 
 approximation.grid <- expand.grid(
   phi0 = c(.1, 1, 10, 100),
-  L = c(0,.5, .9, .99, 1-delta),
-  eps = 10^(0:6)*delta
+  L = c(0,.5, .9, .99, 1-.Machine$double.eps),
+  eps = 10^(c(0, 1, 4))*.Machine$double.eps
 )
-
-run <- FALSE 
 
 if(run){
   approximation.list <- parallel::mclapply(
@@ -74,14 +51,13 @@ if(run){
                   epsilon = linha$eps)      
     }, mc.cores = 10)
   
-  approximation.dt <- do.call(rbind, approximation.list)
-  
-  write.csv(approximation.dt,
-            file = "../saved_data/errorAnalysis_powerLaw.csv",
-            row.names = FALSE)
+  save(approximation.list,
+            file = "../saved_data/errorAnalysis_powerLaw.RData")
 }else{
-  approximation.dt <- read.csv("../saved_data/errorAnalysis_powerLaw.csv")
+  load("../saved_data/errorAnalysis_powerLaw.RData")
 }
+
+approximation.dt <- do.call(rbind, approximation.list)
 
 #### Investigating the instances in which adaptive/naive fails
 #### but the sum with a huge (3E5) number of terms does not.
@@ -95,7 +71,7 @@ approximation.dt$row_id <- paste(approximation.dt$phi_0,
 approximation.dt <- approximation.dt %>%
   group_by(row_id) %>%
   mutate(comparative_error = abs(error)/
-           max(abs(error[method == 'Fixed_3e+05']), target_error))
+           max(abs(error[method == name.huge]), target_error))
 
 approximation.dt <- approximation.dt %>%
   mutate(comparative_success = comparative_error <= 1)
