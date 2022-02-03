@@ -12,7 +12,7 @@ spit_approx <- function(loc, disp, detp, obx, epsilon){
   
   logL <- log(loc) - matrixStats::logSumExp(c(log(loc), log(disp))) + log1p(-detp)
   L <- exp(logL)
-  B <- L/(1-L)
+  B <- max(L/(1-L), 1)
   ans <- suppressWarnings(
     compare_approximations(
       compute_lterm = negativeBinomial_marginalised_lpmf_C,
