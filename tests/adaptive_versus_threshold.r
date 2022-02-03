@@ -104,7 +104,7 @@ batches.2.correct <- sumR::infiniteSum_batches_C(
   epsilon = Eps,
   maxIter = M,
   n0 = 0,
-  batch_size = B2 + 1
+  batch_size = B2
 )
 
 source("../aux/aux.r")
@@ -204,5 +204,3 @@ robust_difference(x = TV.2, y = TTV.2)
 subset(rbind(out1, out2), true_method == "Huge")
 B1
 B2
-
-
