@@ -1,8 +1,8 @@
 # Test scripts for infinite series truncation algorithms
 
-Accompanying code to the paper "Adaptive truncation of infinite sums: applications to Statistics" by [Luiz Max Carvalho](https://github.com/maxbiostat) and [Guido A. Moreira](https://github.com/GuidoAMoreira).
+Accompanying code to the paper ["Adaptive truncation of infinite sums: applications to Statistics"](https://arxiv.org/abs/2202.06121) by [Luiz Max Carvalho](https://github.com/maxbiostat) and [Guido A. Moreira](https://github.com/GuidoAMoreira).
 
-Note that the code provided here makes heavy use of our package, **sumR**, which can be found [here](https://github.com/GuidoAMoreira/sumR).
+Note that the code provided here makes heavy use of our package [**sumR**](https://github.com/GuidoAMoreira/sumR) which is also on CRAN.
 
 - The importance of selecting the right algorithm: as [this](https://github.com/maxbiostat/truncation_tests/blob/main/tests/adaptive_versus_threshold.r) script demonstrates, when L > 1/2 one really ought to use the error-bounding ("adaptive") algorithm or Batches with a suitably chosen `batch_size`. 
 
